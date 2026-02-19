@@ -5,6 +5,7 @@ import "./style.css";
  * Types
  * ========================= */
 type Lang = "es" | "en";
+type Theme = "light" | "dark";
 
 type FareSummary = {
   currency?: string;
@@ -12,6 +13,8 @@ type FareSummary = {
   taxes?: string;
   total?: string;
   totalAmount?: number;
+  baseAmount?: number;
+  taxesAmount?: number;
 };
 
 type PnrMeta = {
@@ -112,51 +115,29 @@ function diffMinutes(a: Date, b: Date) {
   return Math.round((b.getTime() - a.getTime()) / 60000);
 }
 
-function normToken(s: string) {
-  return (s ?? "")
-    .trim()
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-}
-
 /** =========================
  * Theme
  * ========================= */
-type Theme = "light" | "dark";
-const THEME_KEY = "pnr_theme";
-
-function systemTheme(): Theme {
-  return window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
 function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
-  themeToggle.checked = theme === "dark";
+  document.documentElement.setAttribute("data-theme", theme);
   try {
-    localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    // ignore
-  }
+    localStorage.setItem("pnr_theme", theme);
+  } catch {}
 }
 
-function initTheme() {
-  let theme: Theme | null = null;
+function getSavedTheme(): Theme {
   try {
-    theme = (localStorage.getItem(THEME_KEY) as Theme | null) ?? null;
-  } catch {
-    theme = null;
-  }
-  applyTheme(theme ?? systemTheme());
+    const v = localStorage.getItem("pnr_theme");
+    if (v === "light" || v === "dark") return v;
+  } catch {}
+  return "light";
 }
 
 /** =========================
- * Month parsing (no duplicated keys)
+ * Month parsing (no duplicates)
  * ========================= */
-const MONTHS_EN_3: Record<string, number> = {
+const MONTHS: Record<string, number> = {
+  // EN (3 letters)
   JAN: 0,
   FEB: 1,
   MAR: 2,
@@ -169,24 +150,14 @@ const MONTHS_EN_3: Record<string, number> = {
   OCT: 9,
   NOV: 10,
   DEC: 11,
-};
 
-const MONTHS_ES_3: Record<string, number> = {
+  // ES (3 letters, only non-colliding with EN)
   ENE: 0,
-  FEB: 1,
-  MAR: 2,
   ABR: 3,
-  MAY: 4,
-  JUN: 5,
-  JUL: 6,
   AGO: 7,
-  SEP: 8,
-  OCT: 9,
-  NOV: 10,
   DIC: 11,
-};
 
-const MONTHS_ES_FULL: Record<string, number> = {
+  // ES full names (no collisions with EN keys)
   ENERO: 0,
   FEBRERO: 1,
   MARZO: 2,
@@ -201,17 +172,11 @@ const MONTHS_ES_FULL: Record<string, number> = {
   DICIEMBRE: 11,
 };
 
-function monthFromToken(token: string): number | undefined {
-  const k = normToken(token);
-  if (!k) return undefined;
-
-  if (k in MONTHS_ES_FULL) return MONTHS_ES_FULL[k];
-
-  const k3 = k.slice(0, 3);
-  if (k3 in MONTHS_ES_3) return MONTHS_ES_3[k3];
-  if (k3 in MONTHS_EN_3) return MONTHS_EN_3[k3];
-
-  return undefined;
+function normalizeMonthToken(token: string) {
+  return token
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
 }
 
 function parseDateTextLoose(text: string, baseYear: number) {
@@ -222,9 +187,11 @@ function parseDateTextLoose(text: string, baseYear: number) {
   if (!m) return undefined;
 
   const day = Number(m[1]);
-  const mon = monthFromToken(m[2]);
+  const monToken = normalizeMonthToken(m[2]);
   const time = m[3];
 
+  let mon = MONTHS[monToken];
+  if (mon === undefined) mon = MONTHS[monToken.slice(0, 3)];
   if (mon === undefined) return undefined;
 
   const [hh, mm] = time.split(":").map(Number);
@@ -256,8 +223,7 @@ function parseLocaleNumber(s: string) {
     else norm = raw.replace(/\./g, "");
   }
 
-  const n = Number(norm);
-  return n;
+  return Number(norm);
 }
 
 function parseMoneyRaw(
@@ -294,6 +260,7 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
   let taxes: { currency: string; amount: number } | undefined;
   let total: { currency: string; amount: number } | undefined;
 
+  // Pair td label -> next td value
   for (let i = 0; i < tds.length - 1; i++) {
     const k = labelOf(tds[i].textContent ?? "");
     if (!k) continue;
@@ -307,6 +274,7 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
     if (k === "total") total = money;
   }
 
+  // Single td lines like: "Fare USD 2705.00"
   if (!base || !taxes || !total) {
     for (const td of tds) {
       const txt = clean(td.textContent ?? "");
@@ -351,6 +319,8 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
     taxes: taxes ? `${taxes.currency} ${formatMoney(taxes.amount)}` : undefined,
     total: total ? `${total.currency} ${formatMoney(total.amount)}` : undefined,
     totalAmount: total?.amount,
+    baseAmount: base?.amount,
+    taxesAmount: taxes?.amount,
   };
 }
 
@@ -359,13 +329,10 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
  * ========================= */
 function detectPassengers(text: string): number | undefined {
   const t = clean(text);
-
   const m1 = t.match(/\b(?:passengers|pasajeros)\b\D{0,10}(\d{1,3})\b/i);
   if (m1) return Number(m1[1]);
-
   const m2 = t.match(/\b(\d{1,3})\b\s*(?:passengers|pasajeros)\b/i);
   if (m2) return Number(m2[1]);
-
   return undefined;
 }
 
@@ -385,7 +352,7 @@ function detectBags(text: string): string | undefined {
 }
 
 /** =========================
- * HTML segment parsing
+ * HTML parsing (AIR/AÉREO)
  * ========================= */
 function parseHtmlPNR(html: string): ParseResult {
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -410,6 +377,7 @@ function parseHtmlPNR(html: string): ParseResult {
     const col5 = clean(tds[4].textContent ?? "");
     const col6 = clean(tds[5].textContent ?? "");
     const col7 = clean(tds[6].textContent ?? "");
+    const col8 = tds[7]; // Element
 
     if (!/flight\s*number|n[uú]mero\s*de\s*vuelo/i.test(col2)) continue;
     if (!airline) continue;
@@ -421,7 +389,6 @@ function parseHtmlPNR(html: string): ParseResult {
     const to = extractAfterLabel(col6);
     const arrText = extractAfterLabel(col7);
 
-    const col8 = tds[7] as HTMLTableCellElement;
     const details = parseNestedDetails(col8);
 
     segments.push({
@@ -461,7 +428,7 @@ function extractAfterLabel(s: string) {
   return t;
 }
 
-function parseNestedDetails(td: HTMLTableCellElement) {
+function parseNestedDetails(td: Element) {
   const details: {
     flyingTime?: string;
     stops?: string;
@@ -471,6 +438,7 @@ function parseNestedDetails(td: HTMLTableCellElement) {
     bags?: string;
   } = {};
 
+  // IMPORTANT: query inside this td; do not type it as HTMLTableCellElement
   const innerRows = Array.from(td.querySelectorAll("tr"));
   for (const r of innerRows) {
     const cells = Array.from(r.querySelectorAll("td"));
@@ -482,9 +450,10 @@ function parseNestedDetails(td: HTMLTableCellElement) {
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "");
     const v = clean(cells[1].textContent ?? "");
+
     if (!k || !v) continue;
 
-    if (k.includes("flying time") || k.includes("duracion del vuelo"))
+    if (k.includes("flying time") || k.includes("duracion"))
       details.flyingTime = v;
     if (k.includes("stops") || k.includes("escalas")) details.stops = v;
     if (k === "type" || k.includes("tipo")) details.type = v;
@@ -551,7 +520,7 @@ function applyPerFlightPricing(meta: PnrMeta, segments: Segment[]) {
 }
 
 /** =========================
- * RAW parsing (minimal)
+ * RAW parsing (minimal generic)
  * ========================= */
 function parseRawPNR(raw: string): ParseResult {
   const meta: PnrMeta = {};
@@ -572,6 +541,7 @@ function parseRawPNR(raw: string): ParseResult {
     const m = line.match(re);
     if (!m) continue;
 
+    const airline = m[1];
     const flightNumber = `${m[1]}${m[2]}`;
     const cabin = m[3];
     const day = m[4];
@@ -583,7 +553,7 @@ function parseRawPNR(raw: string): ParseResult {
 
     segments.push({
       idx: segments.length + 1,
-      airline: m[1],
+      airline,
       flightNumber,
       cabin: cabin ? `${cabin}-Class` : undefined,
       from,
@@ -626,6 +596,7 @@ function t(lang: Lang) {
         to: "Destino",
         dep: "Sale",
         arr: "Llega",
+        noSegments: "No se detectaron segmentos de vuelo.",
       }
     : {
         general: "General summary",
@@ -651,6 +622,7 @@ function t(lang: Lang) {
         to: "Destination",
         dep: "Depart",
         arr: "Arrive",
+        noSegments: "No flight segments detected.",
       };
 }
 
@@ -663,7 +635,7 @@ function accordion(titleHtml: string, bodyHtml: string, open = false) {
   return `
     <details class="acc" ${open ? "open" : ""}>
       <summary>
-        <div class="acc-title">${titleHtml}</div>
+        <span class="sum">${titleHtml}</span>
         <span class="chev">›</span>
       </summary>
       <div class="acc-body">${bodyHtml}</div>
@@ -725,36 +697,23 @@ function renderPriceSummary(meta: PnrMeta, lang: Lang, flightCount: number) {
   `;
 }
 
-function renderFlightTitle(seg: Segment, lang: Lang) {
-  const d = seg.depText ? escapeHtml(seg.depText) : "";
-  const airline = seg.airline ? escapeHtml(seg.airline) : "";
-  const flight = seg.flightNumber ? escapeHtml(seg.flightNumber) : "";
-  const cabin = seg.cabin ? escapeHtml(seg.cabin) : "";
-  const dur = seg.duration ? escapeHtml(seg.duration) : "";
+function renderFlightTitle(seg: Segment) {
+  const parts: string[] = [];
 
-  const rightBits: string[] = [];
-  if (optClass.checked && cabin)
-    rightBits.push(`<span class="fh-badge">${cabin}</span>`);
-  if (optDuration.checked && dur)
-    rightBits.push(`<span class="fh-badge">${dur}</span>`);
-  if (optPrice.checked && seg.price?.raw) {
-    rightBits.push(
-      `<span class="fh-price">${priceBadge(seg.price.raw, "total")}</span>`,
-    );
+  if (seg.depText)
+    parts.push(`<span class="tag">${escapeHtml(seg.depText)}</span>`);
+  if (seg.airline) parts.push(`<span>${escapeHtml(seg.airline)}</span>`);
+  if (seg.flightNumber)
+    parts.push(`<span class="tag">${escapeHtml(seg.flightNumber)}</span>`);
+
+  if (optClass.checked && seg.cabin) {
+    parts.push(`<span class="muted">— ${escapeHtml(seg.cabin)}</span>`);
+  }
+  if (optDuration.checked && seg.duration) {
+    parts.push(`<span class="muted">— ${escapeHtml(seg.duration)}</span>`);
   }
 
-  return `
-    <div class="flightHeader">
-      <div class="fh-left">
-        ${d ? `<span class="fh-date">${d}</span>` : ""}
-        ${airline ? `<span class="fh-airline">${airline}</span>` : ""}
-        ${flight ? `<span class="fh-flight">${flight}</span>` : ""}
-      </div>
-      <div class="fh-right">
-        ${rightBits.join("")}
-      </div>
-    </div>
-  `;
+  return parts.join(" ");
 }
 
 function renderFlightBody(seg: Segment, lang: Lang) {
@@ -774,6 +733,16 @@ function renderFlightBody(seg: Segment, lang: Lang) {
         ? `<div class="flightLine"><b>${L.arriving}:</b> ${escapeHtml(seg.to)}</div>`
         : "";
 
+  const price =
+    optPrice.checked && seg.price?.raw
+      ? `<div class="flightLine"><b>${L.price}:</b> ${priceBadge(seg.price.raw, "total")}</div>`
+      : "";
+
+  const cls =
+    optClass.checked && seg.cabin
+      ? `<div class="flightLine"><b>${L.class}:</b> ${escapeHtml(seg.cabin)}</div>`
+      : "";
+
   const dur =
     optDuration.checked && seg.duration
       ? `<div class="flightLine"><b>${L.duration}:</b> ${escapeHtml(seg.duration)}</div>`
@@ -783,9 +752,9 @@ function renderFlightBody(seg: Segment, lang: Lang) {
     ? `<div class="flightLine"><b>${L.stops}:</b> ${escapeHtml(seg.stops)}</div>`
     : "";
 
-  const cls =
-    optClass.checked && seg.cabin
-      ? `<div class="flightLine"><b>${L.class}:</b> ${escapeHtml(seg.cabin)}</div>`
+  const bags =
+    optBags.checked && seg.bags
+      ? `<div class="flightLine"><b>${L.bags}:</b> ${escapeHtml(seg.bags)}</div>`
       : "";
 
   const equip = seg.equip
@@ -797,15 +766,6 @@ function renderFlightBody(seg: Segment, lang: Lang) {
   const seat = seg.seat
     ? `<div class="flightLine"><b>Seat:</b> ${escapeHtml(seg.seat)}</div>`
     : "";
-  const bags =
-    optBags.checked && seg.bags
-      ? `<div class="flightLine"><b>${L.bags}:</b> ${escapeHtml(seg.bags)}</div>`
-      : "";
-
-  const price =
-    optPrice.checked && seg.price?.raw
-      ? `<div class="flightLine"><b>${L.price}:</b> ${priceBadge(seg.price.raw, "total")}</div>`
-      : "";
 
   return `
     ${leaving}
@@ -826,6 +786,12 @@ function renderTransitHint(seg: Segment, lang: Lang) {
   if (!optTransit.checked) return "";
   if (!seg.transitToNext) return "";
   return `<div class="centerHint">------ ${L.transit}: ${escapeHtml(seg.transitToNext)} ------</div>`;
+}
+
+function extractTimeOnly(s: string) {
+  const t = clean(s);
+  const m = t.match(/(\d{1,2}:\d{2})\b/);
+  return m ? m[1] : t;
 }
 
 function renderTable(result: ParseResult, lang: Lang) {
@@ -897,12 +863,6 @@ function renderTable(result: ParseResult, lang: Lang) {
   `;
 }
 
-function extractTimeOnly(s: string) {
-  const t = clean(s);
-  const m = t.match(/(\d{1,2}:\d{2})\b/);
-  return m ? m[1] : t;
-}
-
 function renderOutput(result: ParseResult, lang: Lang) {
   const L = t(lang);
 
@@ -910,7 +870,6 @@ function renderOutput(result: ParseResult, lang: Lang) {
     ${renderPriceSummary(result.meta, lang, result.segments.length)}
     ${renderPills(result.meta, lang)}
   `;
-
   const generalAcc = accordion(
     escapeHtml(L.general),
     generalBody || `<div class="small">-</div>`,
@@ -920,15 +879,15 @@ function renderOutput(result: ParseResult, lang: Lang) {
   const flightsBody = result.segments.length
     ? result.segments
         .map((s, idx) => {
-          const titleHtml = renderFlightTitle(s, lang);
+          const title = renderFlightTitle(s) || `#${s.idx}`;
           const body = `
             ${renderFlightBody(s, lang)}
             ${idx < result.segments.length - 1 ? `<div class="hr"></div>${renderTransitHint(s, lang)}` : ""}
           `;
-          return accordion(titleHtml || escapeHtml(`#${s.idx}`), body, false);
+          return accordion(title, body, false);
         })
         .join("")
-    : `<div class="small">No se detectaron segmentos de vuelo.</div>`;
+    : `<div class="small">${escapeHtml(L.noSegments)}</div>`;
 
   const flightsAcc = accordion(escapeHtml(L.flights), flightsBody, true);
   const tableAcc = accordion(
@@ -939,24 +898,28 @@ function renderOutput(result: ParseResult, lang: Lang) {
 
   const html = `${generalAcc}${flightsAcc}${tableAcc}`;
 
+  // Plain text (include fare + taxes + total; per flight if exists)
   const textLines: string[] = [];
-  if (result.meta.fare?.total) {
-    textLines.push(`${L.total}: ${result.meta.fare.total}`);
-    if (result.meta.fare.totalAmount && result.segments.length) {
-      const per = `${result.meta.fare.currency} ${formatMoney(result.meta.fare.totalAmount / result.segments.length)}`;
-      textLines.push(`${L.perFlight}: ${per}`);
-    }
-    textLines.push("");
+  const fare = result.meta.fare;
+
+  if (fare?.base) textLines.push(`${L.fare}: ${fare.base}`);
+  if (fare?.taxes) textLines.push(`${L.taxes}: ${fare.taxes}`);
+  if (fare?.total) textLines.push(`${L.total}: ${fare.total}`);
+
+  if (fare?.totalAmount && fare.currency && result.segments.length) {
+    const per = `${fare.currency} ${formatMoney(fare.totalAmount / result.segments.length)}`;
+    textLines.push(`${L.perFlight}: ${per}`);
   }
+
+  if (fare?.base || fare?.taxes || fare?.total) textLines.push("");
+
   if (result.meta.passengers)
     textLines.push(`${L.passengers}: ${result.meta.passengers}`);
   if (result.meta.bags) textLines.push(`${L.bags}: ${result.meta.bags}`);
   if (result.meta.passengers || result.meta.bags) textLines.push("");
 
   result.segments.forEach((s, i) => {
-    const titlePlain = clean(
-      renderFlightTitle(s, lang).replace(/<[^>]+>/g, " "),
-    );
+    const titlePlain = clean(renderFlightTitle(s).replace(/<[^>]+>/g, ""));
     textLines.push(`#${i + 1} ${titlePlain}`);
     if (s.from)
       textLines.push(
@@ -1044,7 +1007,6 @@ function stripHtml(html: string) {
 textarea.addEventListener("input", () =>
   renderGutter(countLines(textarea.value)),
 );
-
 textarea.addEventListener("scroll", () => {
   gutter.scrollTop = textarea.scrollTop;
 });
@@ -1080,6 +1042,8 @@ themeToggle.addEventListener("change", () => {
 });
 
 /** init */
-initTheme();
 renderGutter(1);
+const saved = getSavedTheme();
+applyTheme(saved);
+themeToggle.checked = saved === "dark";
 convert();

@@ -4,86 +4,78 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Conversor PNR</title>
+    <title>PNR Converter</title>
   </head>
   <body>
     <div class="wrap">
-      <header class="top">
-        <div>
-          <h1>Conversor PNR</h1>
-          <div class="sub">Parsea GDS raw o HTML</div>
-        </div>
+      <h1>PNR Converter</h1>
+      <div class="sub">
+        Agnóstico: parsea GDS raw o HTML “AIR/AÉREO” (sin bases externas)
+      </div>
 
-        <div class="toolbar">
-          <button id="btnConvert" class="primary">Convertir</button>
-          <button id="btnClear">Limpiar</button>
-
-          <div class="divider"></div>
-
-          <label class="switchRow" title="Tema oscuro/claro">
-            <span class="switchLabel">Tema</span>
-            <input id="themeToggle" type="checkbox" />
-            <span class="switchPill" aria-hidden="true"></span>
-          </label>
-        </div>
-      </header>
-
-      <main class="grid">
+      <div class="grid">
         <section class="card">
           <div class="cardHead">
-            <div class="cardTitle">Entrada</div>
+            <h2>Entrada</h2>
+            <div class="toolbar">
+              <button class="btn primary" id="btnConvert">Convertir</button>
+              <button class="btn" id="btnClear">Limpiar</button>
+
+              <div class="switch" title="Theme">
+                <span class="small">🌞</span>
+                <input id="themeToggle" type="checkbox" />
+                <span class="small">🌙</span>
+              </div>
+            </div>
           </div>
 
-          <div class="editor">
-            <pre id="gutter" class="gutter">1</pre>
+          <div class="row">
+            <div class="gutter" id="gutter">1</div>
             <textarea
               id="input"
-              class="input"
               spellcheck="false"
-              placeholder="Pegá acá PNR RAW o HTML..."
+              placeholder="Pegá un PNR RAW o HTML para convertir..."
             ></textarea>
           </div>
 
           <div class="controls">
-            <label class="row">
-              <span>Idioma:</span>
+            <label>
+              Idioma:
               <select id="lang">
                 <option value="es" selected>Español</option>
                 <option value="en">English</option>
               </select>
             </label>
 
-            <label class="chk">
-              <input id="optDuration" type="checkbox" checked />
-              <span>Duración</span>
-            </label>
+            <label
+              ><input id="optDuration" type="checkbox" checked />
+              Duración</label
+            >
+            <label
+              ><input id="optTransit" type="checkbox" checked /> Transit
+              time</label
+            >
+            <label><input id="optClass" type="checkbox" checked /> Clase</label>
+            <label
+              ><input id="optBags" type="checkbox" checked /> Equipaje</label
+            >
+            <label
+              ><input id="optPrice" type="checkbox" checked /> Precio</label
+            >
 
-            <label class="chk">
-              <input id="optTransit" type="checkbox" checked />
-              <span>Transit time</span>
-            </label>
-
-            <label class="chk">
-              <input id="optClass" type="checkbox" checked />
-              <span>Clase</span>
-            </label>
-
-            <label class="chk">
-              <input id="optBags" type="checkbox" checked />
-              <span>Equipaje</span>
-            </label>
-
-            <label class="chk">
-              <input id="optPrice" type="checkbox" checked />
-              <span>Precio</span>
-            </label>
-
-            <div class="actions">
-              <button id="btnCopyHtml">Copiar HTML</button>
-              <button id="btnCopyText">Copiar texto</button>
+            <div
+              style="
+                margin-left: auto;
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+              "
+            >
+              <button class="btn" id="btnCopyHtml">Copiar HTML</button>
+              <button class="btn" id="btnCopyText">Copiar texto</button>
             </div>
 
-            <div class="hint">
+            <div class="small" style="flex-basis: 100%">
               Para Outlook/Mail: usá <b>Copiar HTML</b> y pegalo en el cuerpo
               del mail.
             </div>
@@ -92,12 +84,11 @@
 
         <section class="card">
           <div class="cardHead">
-            <div class="cardTitle">Salida</div>
+            <h2>Salida</h2>
           </div>
-
           <div id="output" class="output"></div>
         </section>
-      </main>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>
