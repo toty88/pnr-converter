@@ -46,7 +46,6 @@
 * {
   box-sizing: border-box;
 }
-
 body {
   margin: 0;
   font-family:
@@ -70,7 +69,6 @@ h1 {
   text-align: center;
   color: var(--accent);
 }
-
 .sub {
   text-align: center;
   color: var(--muted);
@@ -81,7 +79,6 @@ h1 {
   width: min(1200px, calc(100% - 32px));
   margin: 0 auto 50px;
 }
-
 .grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -132,23 +129,20 @@ h1 {
     border-color 160ms ease,
     transform 80ms ease;
 }
-
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
 
-/* HOVER CHANGE COLOR FOR EVERY BUTTON */
+/* hover change color for every button */
 .btn:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
 }
-
 .btn.primary:hover {
   filter: brightness(1.05);
 }
-
 .btn:active {
   transform: translateY(1px);
 }
@@ -158,8 +152,7 @@ h1 {
   grid-template-columns: 42px 1fr;
   border-top: 1px solid var(--border);
 }
-
-/* .gutter {
+.gutter {
   border-right: 1px solid var(--border);
   padding: 10px 0;
   text-align: right;
@@ -171,27 +164,7 @@ h1 {
   line-height: 20px;
   user-select: none;
   overflow: hidden;
-} */
-
-.gutter {
-  border-right: 1px solid var(--border);
-
-  /* IMPORTANTÍSIMO: mismo padding vertical que el textarea */
-  padding: 10px 6px 10px 0;
-
-  text-align: right;
-  color: var(--muted);
-  user-select: none;
-
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-size: 12px;
-  line-height: 20px;
-
-  overflow: hidden;
 }
-
 textarea {
   border: 0;
   outline: none;
@@ -223,7 +196,6 @@ label {
   gap: 8px;
   align-items: center;
 }
-
 select {
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -231,7 +203,6 @@ select {
   background: var(--card);
   color: var(--text);
 }
-
 .small {
   color: var(--muted);
   font-size: 13px;
@@ -248,7 +219,6 @@ select {
   overflow: hidden;
   margin-bottom: 12px;
 }
-
 .acc summary {
   list-style: none;
   cursor: pointer;
@@ -259,18 +229,15 @@ select {
   gap: 12px;
   font-weight: 900;
 }
-
 .acc summary::-webkit-details-marker {
   display: none;
 }
-
 .sum {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: baseline;
 }
-
 .chev {
   font-size: 22px;
   transform: rotate(90deg);
@@ -280,7 +247,6 @@ select {
 .acc[open] .chev {
   transform: rotate(270deg);
 }
-
 .acc-body {
   padding: 12px 14px 14px;
   border-top: 1px solid var(--border);
@@ -291,13 +257,11 @@ select {
   background: var(--border);
   margin: 12px 0;
 }
-
 .centerHint {
   text-align: center;
   color: var(--muted);
   font-size: 12px;
 }
-
 .flightLine {
   margin: 6px 0;
 }
@@ -322,7 +286,6 @@ select {
   flex-wrap: wrap;
   gap: 8px;
 }
-
 .pill {
   background: var(--chip-bg);
   border: 1px solid var(--chip-border);
@@ -347,7 +310,6 @@ select {
   padding: 12px 12px;
   background: color-mix(in srgb, var(--card) 92%, transparent);
 }
-
 .price-row {
   display: flex;
   justify-content: space-between;
@@ -355,7 +317,6 @@ select {
   align-items: center;
   padding: 6px 0;
 }
-
 .price-k {
   font-weight: 900;
   color: var(--muted);
@@ -366,12 +327,14 @@ select {
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  border-radius: 999px;
+
+  /* CHANGED: no more pill/circle */
+  border-radius: 10px;
+
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--card) 88%, transparent);
   font-weight: 900;
 }
-
 .price-badge .dot {
   width: 8px;
   height: 8px;
@@ -379,12 +342,10 @@ select {
   background: var(--accent-2);
   display: inline-block;
 }
-
 .price-total {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--card));
 }
-
 .mono {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
@@ -397,14 +358,12 @@ select {
   border-radius: 14px;
   border: 1px solid var(--border);
 }
-
 table {
   border-collapse: collapse;
   width: 100%;
   min-width: 900px;
   background: var(--card);
 }
-
 th,
 td {
   border-bottom: 1px solid var(--border);
@@ -413,7 +372,6 @@ td {
   vertical-align: top;
   font-size: 13px;
 }
-
 th {
   position: sticky;
   top: 0;
@@ -421,7 +379,6 @@ th {
   text-align: left;
   font-weight: 900;
 }
-
 tr:last-child td {
   border-bottom: 0;
 }
