@@ -61,6 +61,14 @@
               ><input id="optPrice" type="checkbox" checked /> Precio</label
             >
 
+            <!-- NEW: copy with/without money -->
+            <label
+              title="Afecta solo lo que se copia (HTML y texto), no la vista en pantalla"
+            >
+              <input id="optCopyRates" type="checkbox" checked />
+              Copiar con tarifas
+            </label>
+
             <div
               style="
                 margin-left: auto;
@@ -69,7 +77,9 @@
                 flex-wrap: wrap;
               "
             >
-              <button class="btn" id="btnCopyHtml">Copiar HTML</button>
+              <button class="btn" id="btnCopyHtml">
+                Copiar HTML (Outlook)
+              </button>
               <button class="btn" id="btnCopyText">Copiar texto</button>
             </div>
 
