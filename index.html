@@ -1,0 +1,105 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conversor PNR</title>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div>
+          <h1>Conversor PNR</h1>
+          <div class="sub">Parsea GDS raw o HTML</div>
+        </div>
+
+        <div class="toolbar">
+          <button id="btnConvert" class="primary">Convertir</button>
+          <button id="btnClear">Limpiar</button>
+
+          <div class="divider"></div>
+
+          <label class="switchRow" title="Tema oscuro/claro">
+            <span class="switchLabel">Tema</span>
+            <input id="themeToggle" type="checkbox" />
+            <span class="switchPill" aria-hidden="true"></span>
+          </label>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="card">
+          <div class="cardHead">
+            <div class="cardTitle">Entrada</div>
+          </div>
+
+          <div class="editor">
+            <pre id="gutter" class="gutter">1</pre>
+            <textarea
+              id="input"
+              class="input"
+              spellcheck="false"
+              placeholder="Pegá acá PNR RAW o HTML..."
+            ></textarea>
+          </div>
+
+          <div class="controls">
+            <label class="row">
+              <span>Idioma:</span>
+              <select id="lang">
+                <option value="es" selected>Español</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+
+            <label class="chk">
+              <input id="optDuration" type="checkbox" checked />
+              <span>Duración</span>
+            </label>
+
+            <label class="chk">
+              <input id="optTransit" type="checkbox" checked />
+              <span>Transit time</span>
+            </label>
+
+            <label class="chk">
+              <input id="optClass" type="checkbox" checked />
+              <span>Clase</span>
+            </label>
+
+            <label class="chk">
+              <input id="optBags" type="checkbox" checked />
+              <span>Equipaje</span>
+            </label>
+
+            <label class="chk">
+              <input id="optPrice" type="checkbox" checked />
+              <span>Precio</span>
+            </label>
+
+            <div class="actions">
+              <button id="btnCopyHtml">Copiar HTML</button>
+              <button id="btnCopyText">Copiar texto</button>
+            </div>
+
+            <div class="hint">
+              Para Outlook/Mail: usá <b>Copiar HTML</b> y pegalo en el cuerpo
+              del mail.
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead">
+            <div class="cardTitle">Salida</div>
+          </div>
+
+          <div id="output" class="output"></div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

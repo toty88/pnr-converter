@@ -1,0 +1,472 @@
+/* src/style.css */
+:root {
+  --bg: #ffffff;
+  --panel: #f6f8fc;
+  --panel2: #ffffff;
+  --text: #0b1220;
+  --muted: #5b677a;
+  --border: #d7e0f2;
+  --primary: #2b63ff;
+  --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  --mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  --radius: 14px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b1220;
+  --panel: #111a2c;
+  --panel2: #0f172a;
+  --text: #e7eefc;
+  --muted: #a6b3c9;
+  --border: #243252;
+  --primary: #4a7dff;
+  --shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial,
+    "Noto Sans",
+    "Liberation Sans",
+    sans-serif;
+}
+
+.wrap {
+  max-width: 1100px;
+  margin: 28px auto;
+  padding: 0 16px 40px;
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.sub {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cardTitle {
+  font-weight: 800;
+}
+
+.editor {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  border-bottom: 1px solid var(--border);
+}
+
+.gutter {
+  margin: 0;
+  padding: 12px 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.03);
+  border-right: 1px solid var(--border);
+  user-select: none;
+  white-space: pre;
+  overflow: hidden;
+}
+
+:root[data-theme="dark"] .gutter {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.input {
+  width: 100%;
+  min-height: 240px;
+  border: 0;
+  outline: none;
+  resize: vertical;
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 18px;
+  background: transparent;
+  color: var(--text);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  padding: 12px 14px 14px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--text);
+}
+
+.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button.primary {
+  background: var(--primary);
+  border-color: transparent;
+  color: white;
+}
+
+button:hover {
+  filter: brightness(1.03);
+}
+
+.hint {
+  width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.output {
+  padding: 14px;
+}
+
+/* Accordion */
+.acc {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.acc summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px;
+  font-weight: 800;
+  user-select: none;
+}
+
+.acc summary::-webkit-details-marker {
+  display: none;
+}
+
+.acc .chev {
+  transform: rotate(90deg);
+  opacity: 0.7;
+  font-size: 18px;
+  transition: transform 0.15s ease;
+}
+
+.acc[open] .chev {
+  transform: rotate(270deg);
+}
+
+.acc-body {
+  padding: 12px 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.acc-title {
+  width: 100%;
+}
+
+/* Flight header (accordion summary content) */
+.flightHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.fh-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fh-date {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.fh-airline {
+  font-weight: 900;
+}
+
+.fh-flight {
+  font-family: var(--mono);
+  font-weight: 900;
+}
+
+.fh-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.fh-badge {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.fh-price .price-badge {
+  margin-left: 0;
+}
+
+/* Price */
+.price-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.price-k {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.price-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 900;
+}
+
+:root[data-theme="dark"] .price-badge {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.price-total {
+  border-width: 2px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+/* Flights body lines */
+.flightLine {
+  margin: 6px 0;
+}
+
+.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hr {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 0;
+}
+
+.centerHint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+/* Table */
+.tableWrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 900px;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  text-align: left;
+  padding: 10px;
+}
+
+tbody td {
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+  padding: 10px;
+  font-size: 12px;
+}
+
+/* Theme switch */
+.switchRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.switchLabel {
+  color: var(--muted);
+}
+
+#themeToggle {
+  display: none;
+}
+
+.switchPill {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  position: relative;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+:root[data-theme="dark"] .switchPill {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.switchPill::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  transition: left 0.15s ease;
+}
+
+#themeToggle:checked + .switchPill::after {
+  left: 22px;
+}
