@@ -1,7 +1,13 @@
 {
   "name": "pnr-converter",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "PNR / GDS to client-friendly itinerary converter (RAW & HTML)",
+  "author": {
+    "name": "Edgardo Lorenzo",
+    "email": "edgardolor@email.com"
+  },
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
