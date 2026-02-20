@@ -1,54 +1,15 @@
 // src/main.ts
+import { t } from "./i18n";
 import "./style.css";
-
-/** =========================
- * Types
- * ========================= */
-type Lang = "es" | "en";
-type Theme = "light" | "dark";
-
-type FareSummary = {
-  currency?: string;
-  base?: string;
-  taxes?: string;
-  total?: string;
-  totalAmount?: number;
-  baseAmount?: number;
-  taxesAmount?: number;
-};
-
-type PnrMeta = {
-  passengers?: number;
-  bags?: string;
-  fare?: FareSummary;
-  policies?: string[];
-};
-
-type Segment = {
-  idx: number;
-  airline?: string;
-  flightNumber?: string;
-  cabin?: string;
-  from?: string;
-  to?: string;
-  depText?: string;
-  arrText?: string;
-  duration?: string;
-  stops?: string;
-  equip?: string;
-  operatedBy?: string;
-  seat?: string;
-  bags?: string;
-  depDate?: Date;
-  arrDate?: Date;
-  transitToNext?: string;
-  price?: { raw: string; amount?: number; currency?: string };
-};
-
-type ParseResult = {
-  meta: PnrMeta;
-  segments: Segment[];
-};
+import type {
+  FareSummary,
+  Lang,
+  ParseResult,
+  PnrMeta,
+  Segment,
+  Theme,
+} from "./types";
+import { MONTHS } from "./types";
 
 /** =========================
  * DOM refs
@@ -68,6 +29,9 @@ const optTransit = document.querySelector<HTMLInputElement>("#optTransit")!;
 const optClass = document.querySelector<HTMLInputElement>("#optClass")!;
 const optBags = document.querySelector<HTMLInputElement>("#optBags")!;
 const optPrice = document.querySelector<HTMLInputElement>("#optPrice")!;
+
+/** affects only copied output */
+const optCopyRates = document.querySelector<HTMLInputElement>("#optCopyRates")!;
 
 const themeToggle = document.querySelector<HTMLInputElement>("#themeToggle")!;
 
@@ -99,10 +63,9 @@ function countLines(s: string) {
 }
 
 function renderGutter(n: number) {
-  const lines = Array.from({ length: Math.max(1, n) }, (_, i) =>
+  gutter.textContent = Array.from({ length: Math.max(1, n) }, (_, i) =>
     String(i + 1),
   ).join("\n");
-  gutter.textContent = lines;
 }
 
 function formatDurationFromMinutes(mins: number) {
@@ -124,7 +87,6 @@ function applyTheme(theme: Theme) {
     localStorage.setItem("pnr_theme", theme);
   } catch {}
 }
-
 function getSavedTheme(): Theme {
   try {
     const v = localStorage.getItem("pnr_theme");
@@ -134,44 +96,8 @@ function getSavedTheme(): Theme {
 }
 
 /** =========================
- * Month parsing (no duplicates)
+ * Month parsing
  * ========================= */
-const MONTHS: Record<string, number> = {
-  // EN (3 letters)
-  JAN: 0,
-  FEB: 1,
-  MAR: 2,
-  APR: 3,
-  MAY: 4,
-  JUN: 5,
-  JUL: 6,
-  AUG: 7,
-  SEP: 8,
-  OCT: 9,
-  NOV: 10,
-  DEC: 11,
-
-  // ES (3 letters, only non-colliding with EN)
-  ENE: 0,
-  ABR: 3,
-  AGO: 7,
-  DIC: 11,
-
-  // ES full names (no collisions with EN keys)
-  ENERO: 0,
-  FEBRERO: 1,
-  MARZO: 2,
-  ABRIL: 3,
-  MAYO: 4,
-  JUNIO: 5,
-  JULIO: 6,
-  AGOSTO: 7,
-  SEPTIEMBRE: 8,
-  OCTUBRE: 9,
-  NOVIEMBRE: 10,
-  DICIEMBRE: 11,
-};
-
 function normalizeMonthToken(token: string) {
   return token
     .toUpperCase()
@@ -207,20 +133,21 @@ function parseLocaleNumber(s: string) {
 
   const hasComma = raw.includes(",");
   const hasDot = raw.includes(".");
-
   let norm = raw;
 
   if (hasComma && hasDot) {
     const lastComma = raw.lastIndexOf(",");
     const lastDot = raw.lastIndexOf(".");
-    if (lastComma > lastDot) norm = raw.replace(/\./g, "").replace(",", ".");
-    else norm = raw.replace(/,/g, "");
+    norm =
+      lastComma > lastDot
+        ? raw.replace(/\./g, "").replace(",", ".")
+        : raw.replace(/,/g, "");
   } else if (hasComma && !hasDot) {
-    if (raw.match(/,\d{1,2}$/)) norm = raw.replace(",", ".");
-    else norm = raw.replace(/,/g, "");
+    norm = raw.match(/,\d{1,2}$/)
+      ? raw.replace(",", ".")
+      : raw.replace(/,/g, "");
   } else {
-    if (raw.match(/\.\d{1,2}$/)) norm = raw;
-    else norm = raw.replace(/\./g, "");
+    norm = raw.match(/\.\d{1,2}$/) ? raw : raw.replace(/\./g, "");
   }
 
   return Number(norm);
@@ -260,11 +187,9 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
   let taxes: { currency: string; amount: number } | undefined;
   let total: { currency: string; amount: number } | undefined;
 
-  // Pair td label -> next td value
   for (let i = 0; i < tds.length - 1; i++) {
     const k = labelOf(tds[i].textContent ?? "");
     if (!k) continue;
-
     const next = clean(tds[i + 1].textContent ?? "");
     const money = parseMoneyRaw(next);
     if (!money) continue;
@@ -274,7 +199,6 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
     if (k === "total") total = money;
   }
 
-  // Single td lines like: "Fare USD 2705.00"
   if (!base || !taxes || !total) {
     for (const td of tds) {
       const txt = clean(td.textContent ?? "");
@@ -310,7 +234,6 @@ function extractFareFromHtml(doc: Document): FareSummary | undefined {
   }
 
   if (!base && !taxes && !total) return undefined;
-
   const currency = total?.currency || taxes?.currency || base?.currency;
 
   return {
@@ -352,6 +275,41 @@ function detectBags(text: string): string | undefined {
 }
 
 /** =========================
+ * Flight number extraction (fix "NumberLH0511")
+ * ========================= */
+function extractFlightNumberFromCol2(col2: string) {
+  const raw = clean(col2);
+  if (!raw) return "";
+
+  // Remove common labels (ES/EN), with or without spaces/colon.
+  let s = raw
+    .replace(/flight\s*number\s*:?\s*/gi, "")
+    .replace(/n[uú]mero\s*de\s*vuelo\s*:?\s*/gi, "")
+    .replace(/numero\s*de\s*vuelo\s*:?\s*/gi, "")
+    .replace(/^number\s*:?\s*/gi, "")
+    .replace(/^\s*number\s*/gi, "");
+
+  // If it was "NumberLH0511" (no space), strip "Number" prefix.
+  s = s.replace(/^number/i, "");
+
+  s = clean(s).replace(/^:\s*/, "");
+
+  // Fallback: try to capture a plausible flight token.
+  const m = s.match(/\b[A-Z0-9]{2,}\d{2,}[A-Z0-9]*\b/i);
+  if (m) return m[0];
+
+  // Last resort: last token
+  const parts = s.split(/\s+/).filter(Boolean);
+  return parts[parts.length - 1] ?? s;
+}
+
+function extractAfterLabel(s: string) {
+  const t = clean(s);
+  const idx = t.indexOf(":");
+  return idx >= 0 ? clean(t.slice(idx + 1)) : t;
+}
+
+/** =========================
  * HTML parsing (AIR/AÉREO)
  * ========================= */
 function parseHtmlPNR(html: string): ParseResult {
@@ -377,12 +335,12 @@ function parseHtmlPNR(html: string): ParseResult {
     const col5 = clean(tds[4].textContent ?? "");
     const col6 = clean(tds[5].textContent ?? "");
     const col7 = clean(tds[6].textContent ?? "");
-    const col8 = tds[7]; // Element
+    const col8 = tds[7];
 
     if (!/flight\s*number|n[uú]mero\s*de\s*vuelo/i.test(col2)) continue;
     if (!airline) continue;
 
-    const flightNumber = extractLastToken(col2);
+    const flightNumber = extractFlightNumberFromCol2(col2);
     const cabin = extractAfterLabel(col3);
     const from = extractAfterLabel(col4);
     const depText = extractAfterLabel(col5);
@@ -415,19 +373,6 @@ function parseHtmlPNR(html: string): ParseResult {
   return { meta, segments };
 }
 
-function extractLastToken(s: string) {
-  const t = clean(s);
-  const parts = t.split(/\s+/);
-  return parts[parts.length - 1] || "";
-}
-
-function extractAfterLabel(s: string) {
-  const t = clean(s);
-  const idx = t.indexOf(":");
-  if (idx >= 0) return clean(t.slice(idx + 1));
-  return t;
-}
-
 function parseNestedDetails(td: Element) {
   const details: {
     flyingTime?: string;
@@ -438,7 +383,6 @@ function parseNestedDetails(td: Element) {
     bags?: string;
   } = {};
 
-  // IMPORTANT: query inside this td; do not type it as HTMLTableCellElement
   const innerRows = Array.from(td.querySelectorAll("tr"));
   for (const r of innerRows) {
     const cells = Array.from(r.querySelectorAll("td"));
@@ -450,7 +394,6 @@ function parseNestedDetails(td: Element) {
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "");
     const v = clean(cells[1].textContent ?? "");
-
     if (!k || !v) continue;
 
     if (k.includes("flying time") || k.includes("duracion"))
@@ -467,7 +410,7 @@ function parseNestedDetails(td: Element) {
 }
 
 function applyDatesAndTransit(segments: Segment[]) {
-  if (segments.length === 0) return;
+  if (!segments.length) return;
 
   let year = new Date().getFullYear();
   let lastMonth = -1;
@@ -510,8 +453,7 @@ function applyDatesAndTransit(segments: Segment[]) {
 function applyPerFlightPricing(meta: PnrMeta, segments: Segment[]) {
   const totalAmount = meta.fare?.totalAmount;
   const currency = meta.fare?.currency;
-  if (!totalAmount || !currency) return;
-  if (segments.length === 0) return;
+  if (!totalAmount || !currency || !segments.length) return;
 
   const per = totalAmount / segments.length;
   for (const s of segments) {
@@ -520,7 +462,7 @@ function applyPerFlightPricing(meta: PnrMeta, segments: Segment[]) {
 }
 
 /** =========================
- * RAW parsing (minimal generic)
+ * RAW parsing (minimal)
  * ========================= */
 function parseRawPNR(raw: string): ParseResult {
   const meta: PnrMeta = {};
@@ -568,67 +510,165 @@ function parseRawPNR(raw: string): ParseResult {
 }
 
 /** =========================
- * Rendering
+ * Outlook-friendly HTML helpers
  * ========================= */
-function t(lang: Lang) {
-  return lang === "es"
-    ? {
-        general: "Resumen general",
-        flights: "Tus vuelos",
-        table: "Tabla",
-        passengers: "Pasajeros",
-        bags: "Equipaje",
-        fare: "Tarifa",
-        taxes: "Impuestos",
-        total: "Total",
-        perFlight: "Por vuelo",
-        price: "Precio",
-        leaving: "Saliendo",
-        arriving: "Llegando",
-        duration: "Duración",
-        stops: "Escalas",
-        class: "Clase",
-        transit: "Tiempo de conexión",
-        airline: "Aerolínea",
-        flight: "Vuelo",
-        date: "Fecha",
-        from: "Origen",
-        to: "Destino",
-        dep: "Sale",
-        arr: "Llega",
-        noSegments: "No se detectaron segmentos de vuelo.",
-      }
-    : {
-        general: "General summary",
-        flights: "Your flights",
-        table: "Table",
-        passengers: "Passengers",
-        bags: "Baggage",
-        fare: "Fare",
-        taxes: "Taxes",
-        total: "Total",
-        perFlight: "Per flight",
-        price: "Price",
-        leaving: "Leaving",
-        arriving: "Arriving",
-        duration: "Duration",
-        stops: "Stops",
-        class: "Class",
-        transit: "Transit time",
-        airline: "Airline",
-        flight: "Flight",
-        date: "Date",
-        from: "From",
-        to: "Destination",
-        dep: "Depart",
-        arr: "Arrive",
-        noSegments: "No flight segments detected.",
-      };
+function outlookWrap(fragmentHtml: string) {
+  // Wider container so the table wraps less (Outlook will clamp to window if needed)
+  return `
+  <div style="font-family: Arial, sans-serif; font-size: 10pt; color:#111827; width:100%; max-width:1600px;">
+    ${fragmentHtml}
+  </div>`;
 }
 
+/** no pill/circle for money */
+function outlookMoneyText(text: string, strong = false) {
+  return `<span style="font-weight:${strong ? "700" : "600"}; font-family: Consolas, monospace;">${escapeHtml(
+    text,
+  )}</span>`;
+}
+
+function renderOutlookFareSummary(
+  meta: PnrMeta,
+  lang: Lang,
+  flightCount: number,
+) {
+  const L = t(lang);
+  const fare = meta.fare;
+  if (!fare) return "";
+
+  const perFlight =
+    fare.totalAmount && flightCount > 0 && fare.currency
+      ? `${fare.currency} ${formatMoney(fare.totalAmount / flightCount)}`
+      : undefined;
+
+  const row = (k: string, v?: string, strong = false) => `
+    <tr>
+      <td style="padding:6px 8px; border:1px solid #c9d3ea; background:#f4f7ff; font-weight:700; width:30%;">${escapeHtml(
+        k,
+      )}</td>
+      <td style="padding:6px 8px; border:1px solid #c9d3ea; background:#ffffff; width:70%;">${
+        v ? outlookMoneyText(v, strong) : "-"
+      }</td>
+    </tr>
+  `;
+
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:900px;margin:0 0 10px 0;">
+      ${row(L.fare, fare.base, false)}
+      ${row(L.taxes, fare.taxes, false)}
+      ${row(L.total, fare.total, true)}
+      ${perFlight ? row(L.perFlight, perFlight, true) : ""}
+    </table>
+  `;
+}
+
+function renderOutlookFlightsTable(
+  result: ParseResult,
+  lang: Lang,
+  includeRates: boolean,
+) {
+  const L = t(lang);
+
+  const showCls = optClass.checked;
+  const showDur = optDuration.checked;
+
+  const showPriceCol =
+    includeRates &&
+    optPrice.checked &&
+    result.segments.some((s) => Boolean(s.price?.raw));
+
+  const showBagsCol =
+    optBags.checked && result.segments.some((s) => Boolean(s.bags)); // only if any row has bags
+
+  const th = (text: string, w?: string) =>
+    `<th style="border:1px solid #c9d3ea; background:#00bbe3; color:#ffffff; padding:8px; text-align:left; font-weight:700; ${
+      w ? `width:${w};` : ""
+    }">${escapeHtml(text)}</th>`;
+
+  const td = (html: string, align: "left" | "center" = "left") =>
+    `<td style="border:1px solid #c9d3ea; background:#ffffff; padding:8px; vertical-align:top; text-align:${align};">${html}</td>`;
+
+  const header = `
+    <tr>
+      ${th("#", "40px")}
+      ${th(L.airline, "150px")}
+      ${th(L.flight, "80px")}
+      ${showCls ? th(L.class, "90px") : ""}
+      ${th(L.fromOut)}
+      ${th(L.toIn)}
+      ${showDur ? th(L.duration, "80px") : ""}
+      ${th(L.stops, "60px")}
+      ${showPriceCol ? th(L.price, "110px") : ""}
+      ${showBagsCol ? th(L.bags, "90px") : ""}
+    </tr>
+  `;
+
+  const rows = result.segments
+    .map((s) => {
+      const fromHtml =
+        s.from || s.depText
+          ? `
+            <div>${escapeHtml(s.from ?? "")}</div>
+            ${
+              s.depText
+                ? `<div><b>${escapeHtml(L.leaving)}:</b> ${escapeHtml(s.depText)}</div>`
+                : ""
+            }
+          `
+          : "-";
+
+      const toHtml =
+        s.to || s.arrText
+          ? `
+            <div>${escapeHtml(s.to ?? "")}</div>
+            ${
+              s.arrText
+                ? `<div><b>${escapeHtml(L.arriving)}:</b> ${escapeHtml(s.arrText)}</div>`
+                : ""
+            }
+          `
+          : "-";
+
+      const priceHtml =
+        showPriceCol && s.price?.raw ? outlookMoneyText(s.price.raw, true) : "";
+
+      // Per your rule: bags only if THIS row has it (blank otherwise)
+      const bagsHtml = s.bags ? escapeHtml(s.bags) : "";
+
+      return `
+        <tr>
+          ${td(String(s.idx), "center")}
+          ${td(escapeHtml(s.airline ?? "-"))}
+          ${td(escapeHtml(s.flightNumber ?? "-"), "center")}
+          ${showCls ? td(escapeHtml(s.cabin ?? "-"), "center") : ""}
+          ${td(fromHtml)}
+          ${td(toHtml)}
+          ${showDur ? td(escapeHtml(s.duration ?? "-"), "center") : ""}
+          ${td(escapeHtml(s.stops ?? "-"), "center")}
+          ${showPriceCol ? td(priceHtml || "-", "center") : ""}
+          ${showBagsCol ? td(bagsHtml, "center") : ""}
+        </tr>
+      `;
+    })
+    .join("");
+
+  // Wider max-width so the origin/destination wrap less (matches your screenshot better)
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:1600px;">
+      <thead>${header}</thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+/** =========================
+ * UI rendering (web)
+ * ========================= */
 function priceBadge(text: string, variant: "normal" | "total" = "normal") {
   const cls = variant === "total" ? "price-badge price-total" : "price-badge";
-  return `<span class="${cls}"><span class="dot"></span><span class="mono">${escapeHtml(text)}</span></span>`;
+  return `<span class="${cls}"><span class="dot"></span><span class="mono">${escapeHtml(
+    text,
+  )}</span></span>`;
 }
 
 function accordion(titleHtml: string, bodyHtml: string, open = false) {
@@ -653,7 +693,9 @@ function renderPills(meta: PnrMeta, lang: Lang) {
   }
   if (meta.bags) {
     pills.push(
-      `<span class="pill"><span class="k">${L.bags}:</span><span class="v">${escapeHtml(meta.bags)}</span></span>`,
+      `<span class="pill"><span class="k">${L.bags}:</span><span class="v">${escapeHtml(
+        meta.bags,
+      )}</span></span>`,
     );
   }
   return pills.length ? `<div class="pills">${pills.join("")}</div>` : "";
@@ -697,104 +739,7 @@ function renderPriceSummary(meta: PnrMeta, lang: Lang, flightCount: number) {
   `;
 }
 
-function renderFlightTitle(seg: Segment) {
-  const parts: string[] = [];
-
-  if (seg.depText)
-    parts.push(`<span class="tag">${escapeHtml(seg.depText)}</span>`);
-  if (seg.airline) parts.push(`<span>${escapeHtml(seg.airline)}</span>`);
-  if (seg.flightNumber)
-    parts.push(`<span class="tag">${escapeHtml(seg.flightNumber)}</span>`);
-
-  if (optClass.checked && seg.cabin) {
-    parts.push(`<span class="muted">— ${escapeHtml(seg.cabin)}</span>`);
-  }
-  if (optDuration.checked && seg.duration) {
-    parts.push(`<span class="muted">— ${escapeHtml(seg.duration)}</span>`);
-  }
-
-  return parts.join(" ");
-}
-
-function renderFlightBody(seg: Segment, lang: Lang) {
-  const L = t(lang);
-
-  const leaving =
-    seg.from && seg.depText
-      ? `<div class="flightLine"><b>${L.leaving}:</b> ${escapeHtml(seg.from)} <span class="small">(${escapeHtml(seg.depText)})</span></div>`
-      : seg.from
-        ? `<div class="flightLine"><b>${L.leaving}:</b> ${escapeHtml(seg.from)}</div>`
-        : "";
-
-  const arriving =
-    seg.to && seg.arrText
-      ? `<div class="flightLine"><b>${L.arriving}:</b> ${escapeHtml(seg.to)} <span class="small">(${escapeHtml(seg.arrText)})</span></div>`
-      : seg.to
-        ? `<div class="flightLine"><b>${L.arriving}:</b> ${escapeHtml(seg.to)}</div>`
-        : "";
-
-  const price =
-    optPrice.checked && seg.price?.raw
-      ? `<div class="flightLine"><b>${L.price}:</b> ${priceBadge(seg.price.raw, "total")}</div>`
-      : "";
-
-  const cls =
-    optClass.checked && seg.cabin
-      ? `<div class="flightLine"><b>${L.class}:</b> ${escapeHtml(seg.cabin)}</div>`
-      : "";
-
-  const dur =
-    optDuration.checked && seg.duration
-      ? `<div class="flightLine"><b>${L.duration}:</b> ${escapeHtml(seg.duration)}</div>`
-      : "";
-
-  const stops = seg.stops
-    ? `<div class="flightLine"><b>${L.stops}:</b> ${escapeHtml(seg.stops)}</div>`
-    : "";
-
-  const bags =
-    optBags.checked && seg.bags
-      ? `<div class="flightLine"><b>${L.bags}:</b> ${escapeHtml(seg.bags)}</div>`
-      : "";
-
-  const equip = seg.equip
-    ? `<div class="flightLine"><b>Type:</b> ${escapeHtml(seg.equip)}</div>`
-    : "";
-  const op = seg.operatedBy
-    ? `<div class="flightLine"><b>Operated by:</b> ${escapeHtml(seg.operatedBy)}</div>`
-    : "";
-  const seat = seg.seat
-    ? `<div class="flightLine"><b>Seat:</b> ${escapeHtml(seg.seat)}</div>`
-    : "";
-
-  return `
-    ${leaving}
-    ${arriving}
-    ${price}
-    ${cls}
-    ${dur}
-    ${stops}
-    ${bags}
-    ${equip}
-    ${op}
-    ${seat}
-  `;
-}
-
-function renderTransitHint(seg: Segment, lang: Lang) {
-  const L = t(lang);
-  if (!optTransit.checked) return "";
-  if (!seg.transitToNext) return "";
-  return `<div class="centerHint">------ ${L.transit}: ${escapeHtml(seg.transitToNext)} ------</div>`;
-}
-
-function extractTimeOnly(s: string) {
-  const t = clean(s);
-  const m = t.match(/(\d{1,2}:\d{2})\b/);
-  return m ? m[1] : t;
-}
-
-function renderTable(result: ParseResult, lang: Lang) {
+function renderUiTable(result: ParseResult, lang: Lang) {
   const L = t(lang);
   const showDur = optDuration.checked;
   const showCls = optClass.checked;
@@ -802,51 +747,47 @@ function renderTable(result: ParseResult, lang: Lang) {
   const showPrice = optPrice.checked;
 
   const cols: string[] = [
-    `<th>${L.date}</th>`,
-    `<th>${L.airline}</th>`,
-    `<th>${L.flight}</th>`,
-    showCls ? `<th>${L.class}</th>` : "",
-    `<th>${L.from}</th>`,
-    `<th>${L.dep}</th>`,
-    `<th>${L.to}</th>`,
-    `<th>${L.arr}</th>`,
-    showDur ? `<th>${L.duration}</th>` : "",
-    showPrice ? `<th>${L.price}</th>` : "",
-    `<th>${L.stops}</th>`,
-    showBags ? `<th>${L.bags}</th>` : "",
+    `<th>#</th>`,
+    `<th>${escapeHtml(L.airline)}</th>`,
+    `<th>${escapeHtml(L.flight)}</th>`,
+    showCls ? `<th>${escapeHtml(L.class)}</th>` : "",
+    `<th>${escapeHtml(L.fromOut)}</th>`,
+    `<th>${escapeHtml(L.toIn)}</th>`,
+    showDur ? `<th>${escapeHtml(L.duration)}</th>` : "",
+    `<th>${escapeHtml(L.stops)}</th>`,
+    showPrice ? `<th>${escapeHtml(L.price)}</th>` : "",
+    showBags ? `<th>${escapeHtml(L.bags)}</th>` : "",
   ].filter(Boolean);
 
   const rows = result.segments
     .map((s) => {
-      const date = s.depText ? escapeHtml(s.depText) : "";
-      const airline = s.airline ? escapeHtml(s.airline) : "";
-      const flight = s.flightNumber ? escapeHtml(s.flightNumber) : "";
-      const cls = s.cabin ? escapeHtml(s.cabin) : "";
-      const from = s.from ? escapeHtml(s.from) : "";
-      const to = s.to ? escapeHtml(s.to) : "";
-      const dep = s.depText ? extractTimeOnly(s.depText) : "";
-      const arr = s.arrText ? extractTimeOnly(s.arrText) : "";
-      const dur = s.duration ? escapeHtml(s.duration) : "";
-      const stops = s.stops ? escapeHtml(s.stops) : "";
-      const bags =
-        s.bags || result.meta.bags
-          ? escapeHtml(s.bags || result.meta.bags || "")
-          : "";
-      const price = s.price?.raw ? priceBadge(s.price.raw, "total") : "";
+      const fromHtml =
+        (s.from ? `<div>${escapeHtml(s.from)}</div>` : "") +
+        (s.depText
+          ? `<div><b>${escapeHtml(L.leaving)}:</b> ${escapeHtml(s.depText)}</div>`
+          : "");
+
+      const toHtml =
+        (s.to ? `<div>${escapeHtml(s.to)}</div>` : "") +
+        (s.arrText
+          ? `<div><b>${escapeHtml(L.arriving)}:</b> ${escapeHtml(s.arrText)}</div>`
+          : "");
 
       const tds: string[] = [
-        `<td>${date}</td>`,
-        `<td>${airline}</td>`,
-        `<td>${flight}</td>`,
-        showCls ? `<td>${cls}</td>` : "",
-        `<td>${from}</td>`,
-        `<td>${escapeHtml(dep)}</td>`,
-        `<td>${to}</td>`,
-        `<td>${escapeHtml(arr)}</td>`,
-        showDur ? `<td>${dur}</td>` : "",
-        showPrice ? `<td>${price}</td>` : "",
-        `<td>${stops}</td>`,
-        showBags ? `<td>${bags}</td>` : "",
+        `<td>${s.idx}</td>`,
+        `<td>${escapeHtml(s.airline ?? "")}</td>`,
+        `<td>${escapeHtml(s.flightNumber ?? "")}</td>`,
+        showCls ? `<td>${escapeHtml(s.cabin ?? "")}</td>` : "",
+        `<td>${fromHtml || "-"}</td>`,
+        `<td>${toHtml || "-"}</td>`,
+        showDur ? `<td>${escapeHtml(s.duration ?? "")}</td>` : "",
+        `<td>${escapeHtml(s.stops ?? "")}</td>`,
+        showPrice
+          ? `<td>${s.price?.raw ? priceBadge(s.price.raw, "total") : "-"}</td>`
+          : "",
+        showBags
+          ? `<td>${escapeHtml((s.bags || result.meta.bags || "") as string)}</td>`
+          : "",
       ].filter(Boolean);
 
       return `<tr>${tds.join("")}</tr>`;
@@ -879,12 +820,77 @@ function renderOutput(result: ParseResult, lang: Lang) {
   const flightsBody = result.segments.length
     ? result.segments
         .map((s, idx) => {
-          const title = renderFlightTitle(s) || `#${s.idx}`;
+          const title = [
+            s.depText
+              ? `<span class="tag">${escapeHtml(s.depText)}</span>`
+              : "",
+            s.airline ? `<span>${escapeHtml(s.airline)}</span>` : "",
+            s.flightNumber
+              ? `<span class="tag">${escapeHtml(s.flightNumber)}</span>`
+              : "",
+            optClass.checked && s.cabin
+              ? `<span class="muted">— ${escapeHtml(s.cabin)}</span>`
+              : "",
+            optDuration.checked && s.duration
+              ? `<span class="muted">— ${escapeHtml(s.duration)}</span>`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
           const body = `
-            ${renderFlightBody(s, lang)}
-            ${idx < result.segments.length - 1 ? `<div class="hr"></div>${renderTransitHint(s, lang)}` : ""}
+            ${
+              s.from
+                ? `<div class="flightLine"><b>${escapeHtml(L.leaving)}:</b> ${escapeHtml(s.from)} ${
+                    s.depText
+                      ? `<span class="small">(${escapeHtml(s.depText)})</span>`
+                      : ""
+                  }</div>`
+                : ""
+            }
+            ${
+              s.to
+                ? `<div class="flightLine"><b>${escapeHtml(L.arriving)}:</b> ${escapeHtml(s.to)} ${
+                    s.arrText
+                      ? `<span class="small">(${escapeHtml(s.arrText)})</span>`
+                      : ""
+                  }</div>`
+                : ""
+            }
+            ${
+              optPrice.checked && s.price?.raw
+                ? `<div class="flightLine"><b>${escapeHtml(L.price)}:</b> ${priceBadge(s.price.raw, "total")}</div>`
+                : ""
+            }
+            ${
+              optClass.checked && s.cabin
+                ? `<div class="flightLine"><b>${escapeHtml(L.class)}:</b> ${escapeHtml(s.cabin)}</div>`
+                : ""
+            }
+            ${
+              optDuration.checked && s.duration
+                ? `<div class="flightLine"><b>${escapeHtml(L.duration)}:</b> ${escapeHtml(s.duration)}</div>`
+                : ""
+            }
+            ${s.stops ? `<div class="flightLine"><b>${escapeHtml(L.stops)}:</b> ${escapeHtml(s.stops)}</div>` : ""}
+            ${
+              optBags.checked && (s.bags || result.meta.bags)
+                ? `<div class="flightLine"><b>${escapeHtml(L.bags)}:</b> ${escapeHtml(
+                    s.bags || result.meta.bags || "",
+                  )}</div>`
+                : ""
+            }
+            ${
+              optTransit.checked &&
+              s.transitToNext &&
+              idx < result.segments.length - 1
+                ? `<div class="hr"></div><div class="centerHint">------ ${escapeHtml(L.transit)}: ${escapeHtml(
+                    s.transitToNext,
+                  )} ------</div>`
+                : ""
+            }
           `;
-          return accordion(title, body, false);
+          return accordion(title || `#${s.idx}`, body, false);
         })
         .join("")
     : `<div class="small">${escapeHtml(L.noSegments)}</div>`;
@@ -892,26 +898,33 @@ function renderOutput(result: ParseResult, lang: Lang) {
   const flightsAcc = accordion(escapeHtml(L.flights), flightsBody, true);
   const tableAcc = accordion(
     escapeHtml(L.table),
-    renderTable(result, lang),
+    renderUiTable(result, lang),
     true,
   );
 
-  const html = `${generalAcc}${flightsAcc}${tableAcc}`;
+  const uiHtml = `${generalAcc}${flightsAcc}${tableAcc}`;
 
-  // Plain text (include fare + taxes + total; per flight if exists)
+  const includeRates = optCopyRates.checked;
+
+  const outlookHtml = outlookWrap(`
+    ${includeRates ? renderOutlookFareSummary(result.meta, lang, result.segments.length) : ""}
+    ${renderOutlookFlightsTable(result, lang, includeRates)}
+  `);
+
   const textLines: string[] = [];
   const fare = result.meta.fare;
 
-  if (fare?.base) textLines.push(`${L.fare}: ${fare.base}`);
-  if (fare?.taxes) textLines.push(`${L.taxes}: ${fare.taxes}`);
-  if (fare?.total) textLines.push(`${L.total}: ${fare.total}`);
+  if (includeRates) {
+    if (fare?.base) textLines.push(`${L.fare}: ${fare.base}`);
+    if (fare?.taxes) textLines.push(`${L.taxes}: ${fare.taxes}`);
+    if (fare?.total) textLines.push(`${L.total}: ${fare.total}`);
 
-  if (fare?.totalAmount && fare.currency && result.segments.length) {
-    const per = `${fare.currency} ${formatMoney(fare.totalAmount / result.segments.length)}`;
-    textLines.push(`${L.perFlight}: ${per}`);
+    if (fare?.totalAmount && fare.currency && result.segments.length) {
+      const per = `${fare.currency} ${formatMoney(fare.totalAmount / result.segments.length)}`;
+      textLines.push(`${L.perFlight}: ${per}`);
+    }
+    if (fare?.base || fare?.taxes || fare?.total) textLines.push("");
   }
-
-  if (fare?.base || fare?.taxes || fare?.total) textLines.push("");
 
   if (result.meta.passengers)
     textLines.push(`${L.passengers}: ${result.meta.passengers}`);
@@ -919,8 +932,9 @@ function renderOutput(result: ParseResult, lang: Lang) {
   if (result.meta.passengers || result.meta.bags) textLines.push("");
 
   result.segments.forEach((s, i) => {
-    const titlePlain = clean(renderFlightTitle(s).replace(/<[^>]+>/g, ""));
-    textLines.push(`#${i + 1} ${titlePlain}`);
+    textLines.push(
+      `#${i + 1} ${[s.depText, s.airline, s.flightNumber, s.cabin, s.duration].filter(Boolean).join(" — ")}`,
+    );
     if (s.from)
       textLines.push(
         `${L.leaving}: ${s.from} ${s.depText ? `(${s.depText})` : ""}`.trim(),
@@ -929,20 +943,16 @@ function renderOutput(result: ParseResult, lang: Lang) {
       textLines.push(
         `${L.arriving}: ${s.to} ${s.arrText ? `(${s.arrText})` : ""}`.trim(),
       );
-    if (optPrice.checked && s.price?.raw)
+
+    if (includeRates && optPrice.checked && s.price?.raw)
       textLines.push(`${L.price}: ${s.price.raw}`);
-    if (optDuration.checked && s.duration)
-      textLines.push(`${L.duration}: ${s.duration}`);
-    if (optClass.checked && s.cabin) textLines.push(`${L.class}: ${s.cabin}`);
-    if (s.stops) textLines.push(`${L.stops}: ${s.stops}`);
-    if (optBags.checked && (s.bags || result.meta.bags))
-      textLines.push(`${L.bags}: ${s.bags || result.meta.bags}`);
     if (optTransit.checked && s.transitToNext)
       textLines.push(`${L.transit}: ${s.transitToNext}`);
+
     textLines.push("");
   });
 
-  return { html, text: textLines.join("\n").trim() };
+  return { uiHtml, outlookHtml, text: textLines.join("\n").trim() };
 }
 
 /** =========================
@@ -964,9 +974,9 @@ function convert() {
   const result = isHtml ? parseHtmlPNR(input) : parseRawPNR(input);
 
   const rendered = renderOutput(result, lang);
-  output.innerHTML = rendered.html;
+  output.innerHTML = rendered.uiHtml;
 
-  lastRenderedHtml = rendered.html;
+  lastRenderedHtml = rendered.outlookHtml;
   lastRenderedText = rendered.text;
 }
 
@@ -1007,9 +1017,10 @@ function stripHtml(html: string) {
 textarea.addEventListener("input", () =>
   renderGutter(countLines(textarea.value)),
 );
-textarea.addEventListener("scroll", () => {
-  gutter.scrollTop = textarea.scrollTop;
-});
+textarea.addEventListener(
+  "scroll",
+  () => (gutter.scrollTop = textarea.scrollTop),
+);
 
 btnConvert.addEventListener("click", convert);
 
@@ -1031,11 +1042,15 @@ btnCopyText.addEventListener("click", async () => {
   await navigator.clipboard.writeText(lastRenderedText);
 });
 
-[langSel, optDuration, optTransit, optClass, optBags, optPrice].forEach(
-  (el) => {
-    el.addEventListener("change", convert);
-  },
-);
+[
+  langSel,
+  optDuration,
+  optTransit,
+  optClass,
+  optBags,
+  optPrice,
+  optCopyRates,
+].forEach((el) => el.addEventListener("change", convert));
 
 themeToggle.addEventListener("change", () => {
   applyTheme(themeToggle.checked ? "dark" : "light");
